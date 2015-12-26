@@ -2,7 +2,8 @@
 
 Gamer gamer;
 
-static const int trackLength = 1000;
+static const int trackLength = 500; // How far down the track do you need to go to finish?
+static const int DEBUG = 0; // Serial library seems to leak or cause weirdness so make toggle-able
 
 /**
  * How the track is displayed on screen
@@ -27,20 +28,26 @@ int* transitions[4] = {};
 byte track[8] = {}; // Remembers the actual deployed track parts
 int trackState[8] = {}; // Remembers which transition to apply next (randomly selected)
 
-int gameCount = 0; // Used to make it seem a little random
+unsigned short gameCount = 0; // Used to make it seem a little random
 
 bool raceInProgress = false; // Is a race running
-int raceStartTime; // Start time in milliseconds
-int distanceTravelled = 0; // How many track updates have happened
+unsigned long raceStartTime; // Start time in milliseconds
+unsigned long lastTrackUpdate = 0; // Time of last track update in milliseconds
+unsigned short distanceTravelled = 0; // How many track updates have happened
 
-int lastTrackUpdate = 0; // Time of last track update in milliseconds
-
-int dotRacerSpeed = 1000; // Current speed of racer (for track updates)
-int dotRacerPosition = 4; // Current X position of racer
-int dotRacerFlicker = 1; // toggle to make the dot visible
+/**
+ * Current 'speed' of racer for track updates. Speed is measured in the number
+ * of milliseconds until the next track update so a smaller value for speed means
+ * dotRacer is going _faster_. Max speed: 100, min speed: 1000
+ */
+unsigned short dotRacerSpeed = 1000; // 
+unsigned short dotRacerPosition = 4; // Current X position of racer
+bool dotRacerFlicker = true; // toggle to make the dot visible
 
 void setup() {
-  Serial.begin(9600);
+  if (DEBUG) {
+    Serial.begin(9600);
+  }
 
   // Setup transistions
   transitions[0] = trans1;
@@ -50,18 +57,25 @@ void setup() {
 
   gamer.begin();
 
-  Serial.print("DotRacer Ready...\n");
+  if (DEBUG) {
+    Serial.print("DotRacer Ready...\n");
+  }
 }
 
 void loop() {
   if ( raceInProgress ) {
 
+    // End condition...
     if ( distanceTravelled > trackLength ) {
+
+      // What to do with elapsed time? printScreen?
       double elapsed = ((double)millis() - (double)raceStartTime)/1000;
+
       for (int i = 0; i<3; i++) {
         gamer.printString("Finished");
       }
       raceInProgress = false;
+      
     } else {
     
       progressTrack();
@@ -79,15 +93,18 @@ void loop() {
 
 void progressTrack() {
   int now = millis();
-    
+
   if ( (now - lastTrackUpdate) >= dotRacerSpeed ) {
+    // Move the track down the screen
     for (int i = 7; i>0; i--) {
       trackState[i] = trackState[i-1];
       track[i] = track[i-1];
     }
-    
+
+    // Place a new random track part at the top of screen
     trackState[0] = transitions[trackState[0]][random(0,3)];
     track[0] = trackParts[trackState[0]];
+    
     lastTrackUpdate = now;
     distanceTravelled++;
   }
@@ -95,19 +112,25 @@ void progressTrack() {
 }
 
 void updateSpeed() {
+  // Player pressed speed up (up button)
   if(gamer.isPressed(UP) && dotRacerSpeed > 100) {
       dotRacerSpeed -= 100;
   }
+  // Player pressed slow down (down button)
   if(gamer.isPressed(DOWN) && dotRacerSpeed <= 1000) {
     dotRacerSpeed += 100;
   }
+  // We detected a collision - the racer is off the track
+  // so slow it down
   if (racerOffTrack() && dotRacerSpeed <= 1000) {
     dotRacerSpeed += 50;
   }
 }
 
 /**
- * Detects "collisions"
+ * Detects "collisions". Combined all the bits set by the track
+ * with the racer's bit and test to see if the racer is still
+ * "visible". If not, it's off the track
  */
 int racerOffTrack() {
   byte test = track[7];
@@ -125,6 +148,7 @@ void updateDotRacer() {
   if(gamer.isPressed(RIGHT) && dotRacerPosition >= 1) {
     dotRacerPosition -= 1;
   }
+  // The flicker helps make the racer visible to the eye even when off the track
   dotRacerFlicker = !dotRacerFlicker;
 }
 
@@ -143,28 +167,32 @@ void redrawScreen() {
 
 void showSplashScreen() {
   if(gamer.isPressed(START)) {
-    
-    Serial.print("Race Starting...\n");
-
-    raceInProgress = true;
-    raceStartTime = millis();
-    distanceTravelled = 0;
-    lastTrackUpdate = 0; // reset
-
-    dotRacerSpeed = 1000;
-    dotRacerPosition = 4;
-    dotRacerFlicker = 1;
-
-    setupTrack();
-    gamer.printImage(track);
-    
+    startRace();
   } else {
     gamer.printString("DOT");
   }
 }
 
+void startRace() {
+  if (DEBUG) {
+    Serial.print("Race Starting...\n");
+  }
+
+  raceInProgress = true;
+  raceStartTime = millis();
+  distanceTravelled = 0;
+  lastTrackUpdate = 0; // reset
+
+  dotRacerSpeed = 1000;
+  dotRacerPosition = 4;
+  dotRacerFlicker = true;
+
+  setupTrack();
+  gamer.printImage(track);
+}
+
 void setupTrack() {
-  randomSeed(++gameCount);
+  randomSeed(++gameCount*100);
   int state = random(0,4);
   for (int i = 0; i<8; i++) {
     trackState[i] = state;
