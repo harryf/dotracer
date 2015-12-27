@@ -2,8 +2,9 @@
 
 Gamer gamer;
 
-static const int trackLength = 500; // How far down the track do you need to go to finish?
-static const int DEBUG = 0; // Serial library seems to leak or cause weirdness so make toggle-able
+static const short trackLength = 500; // How far down the track do you need to go to finish?
+static const bool DEBUG = false; // Serial library seems to leak or cause weirdness so make toggle-able
+static const short flickerRate = 100; 
 
 /**
  * How the track is displayed on screen
@@ -30,17 +31,30 @@ int trackState[8] = {}; // Remembers which transition to apply next (randomly se
 
 unsigned short gameCount = 0; // Used to make it seem a little random
 
-bool raceInProgress = false; // Is a race running
+enum RaceCondition {
+  STOPPED = 0,
+  STARTING = 1,
+  INPROGRESS = 2,
+  ENDING = 3,
+  SHOWSCORE = 4
+};
+
+RaceCondition raceState = STOPPED;
+
 unsigned long raceStartTime; // Start time in milliseconds
 unsigned long lastTrackUpdate = 0; // Time of last track update in milliseconds
 unsigned short distanceTravelled = 0; // How many track updates have happened
+
+unsigned short racerStartRow = 3; // For the start sequence
+unsigned short racerEndCounter = 0; // Tracking the end sequence
 
 /**
  * Current 'speed' of racer for track updates. Speed is measured in the number
  * of milliseconds until the next track update so a smaller value for speed means
  * dotRacer is going _faster_. Max speed: 100, min speed: 1000
  */
-unsigned short dotRacerSpeed = 1000; // 
+unsigned short dotRacerSpeed = 300;
+
 unsigned short dotRacerPosition = 4; // Current X position of racer
 bool dotRacerFlicker = true; // toggle to make the dot visible
 
@@ -60,39 +74,112 @@ void setup() {
   if (DEBUG) {
     Serial.print("DotRacer Ready...\n");
   }
+
+  gamer.printString("DOT RACER");
 }
 
 void loop() {
-  if ( raceInProgress ) {
+  unsigned long now = millis();
+  switch (raceState) {
 
-    // End condition...
-    if ( distanceTravelled > trackLength ) {
-
-      // What to do with elapsed time? printScreen?
-      double elapsed = ((double)millis() - (double)raceStartTime)/1000;
-
-      for (int i = 0; i<3; i++) {
-        gamer.printString("Finished");
+    
+    case STARTING:
+      if ( progressTrack(now) ) {
+        racerStartRow++;
       }
-      raceInProgress = false;
+      updateDotRacer(true);
+      redrawScreen(racerStartRow);
+      delay(flickerRate);
+
+      if (racerStartRow > 7 ) {
+        raceState = INPROGRESS;
+      }
       
-    } else {
+    break;
     
-      progressTrack();
+    case INPROGRESS:
+      // End condition...
+      if ( distanceTravelled > trackLength ) {
+        raceState = ENDING;
+        
+      } else {
+        if ( progressTrack(now) ) {
+          addNewTrack();
+        }
+        updateSpeed();
+        updateDotRacer(true);
+        redrawScreen(7);
+        delay(flickerRate);
+        
+      }
+    break;
+    
+    case ENDING:
+      if ( progressTrack(now) ) {
+        addEmptyTrack();
+        racerEndCounter++;
+      }
       updateSpeed();
-      updateDotRacer();
-      redrawScreen();  
-      delay(100); // Sets the flicker rate of the dotRacer
-      
-    }
+      updateDotRacer(true);
+      if (racerEndCounter > 7 ) {
+        redrawScreen(7-(racerEndCounter-7));
+      } else {
+        redrawScreen(7);
+      }
+      delay(flickerRate);
+
+      if (racerEndCounter > 10 ) {
+        raceState = SHOWSCORE;
+      }
+    break;
+
+    case SHOWSCORE:
+      // What to do with elapsed time? printScreen?
+      // double elapsed = ((double)millis() - (double)raceStartTime)/1000;
+      // gamer.printString("Finished");  
+      gamer.showScore(10);
+
+      if ( (now - lastTrackUpdate) > 5000 ) {
+        raceState = STOPPED;
+        resetRace();
+      }
+    break;
     
-  } else {
-    showSplashScreen();
+    default:
+      updateDotRacer(false);
+      redrawScreen(racerStartRow);
+      delay(flickerRate);
+    break;
+    
+  }
+
+  // Can restart at any time
+  if(gamer.isPressed(START)) {
+
+    if (DEBUG) {
+      Serial.print("Race Starting...\n");
+    }
+
+    raceStartTime = millis();
+    resetRace();
+    raceState = STARTING;
   }
 }
 
-void progressTrack() {
-  int now = millis();
+void resetRace() {
+  distanceTravelled = 0;
+  lastTrackUpdate = 0;
+
+  dotRacerSpeed = 300;
+  dotRacerPosition = 4;
+  dotRacerFlicker = true;
+
+  racerStartRow = 3;
+  racerEndCounter = 0;
+  setupTrack();
+}
+
+bool progressTrack(unsigned long now) {
 
   if ( (now - lastTrackUpdate) >= dotRacerSpeed ) {
     // Move the track down the screen
@@ -100,15 +187,25 @@ void progressTrack() {
       trackState[i] = trackState[i-1];
       track[i] = track[i-1];
     }
-
-    // Place a new random track part at the top of screen
-    trackState[0] = transitions[trackState[0]][random(0,3)];
-    track[0] = trackParts[trackState[0]];
     
     lastTrackUpdate = now;
     distanceTravelled++;
+
+    return true;
   }
 
+  return false;
+
+}
+
+void addNewTrack() {
+  // Place a new random track part at the top of screen
+  trackState[0] = transitions[trackState[0]][random(0,3)];
+  track[0] = trackParts[trackState[0]];
+}
+
+void addEmptyTrack() {
+  track[0] = B00000000;
 }
 
 void updateSpeed() {
@@ -141,18 +238,20 @@ int racerOffTrack() {
   return 0;
 }
 
-void updateDotRacer() {
-  if(gamer.isPressed(LEFT) && dotRacerPosition < 7 ) {
-    dotRacerPosition += 1;
-  }
-  if(gamer.isPressed(RIGHT) && dotRacerPosition >= 1) {
-    dotRacerPosition -= 1;
+void updateDotRacer(bool allowMovement) {
+  if ( allowMovement ) {
+    if(gamer.isPressed(LEFT) && dotRacerPosition < 7 ) {
+      dotRacerPosition += 1;
+    }
+    if(gamer.isPressed(RIGHT) && dotRacerPosition >= 1) {
+      dotRacerPosition -= 1;
+    }
   }
   // The flicker helps make the racer visible to the eye even when off the track
   dotRacerFlicker = !dotRacerFlicker;
 }
 
-void redrawScreen() {
+void redrawScreen(int racerPosition) {
   byte screen[8] = {};
 
   // Copy the current state of the track onto the screen
@@ -161,44 +260,16 @@ void redrawScreen() {
   }
 
   // Place the dotRacer
-  screen[7] ^= (-dotRacerFlicker ^ screen[7]) & (1 << dotRacerPosition);
+  screen[racerPosition] ^= (-dotRacerFlicker ^ screen[racerPosition]) & (1 << dotRacerPosition);
   gamer.printImage(screen);
 }
 
-void showSplashScreen() {
-  if(gamer.isPressed(START)) {
-    startRace();
-  } else {
-    gamer.printString("DOT");
-  }
-}
-
-void startRace() {
-  if (DEBUG) {
-    Serial.print("Race Starting...\n");
-  }
-
-  raceInProgress = true;
-  raceStartTime = millis();
-  distanceTravelled = 0;
-  lastTrackUpdate = 0; // reset
-
-  dotRacerSpeed = 1000;
-  dotRacerPosition = 4;
-  dotRacerFlicker = true;
-
-  setupTrack();
-  gamer.printImage(track);
-}
-
 void setupTrack() {
-  randomSeed(++gameCount*100);
-  int state = random(0,4);
-  for (int i = 0; i<8; i++) {
-    trackState[i] = state;
-    state = transitions[state][random(0,3)];
-    track[i] = trackParts[state];
+  
+  for (int i = 0; i<= 7;i++) {
+    track[i] = B00000000;
   }
+  
 }
 
 
