@@ -34,6 +34,9 @@ int* transitions[6] = {};
 byte track[8] = {}; // Remembers the actual deployed track parts
 int trackState[8] = {}; // Remembers which transition to apply next (randomly selected)
 
+int engineSounds[] = {130, 125, 120};
+bool sound = true;
+
 unsigned short gameCount = 0; // Used to make it seem a little random
 
 enum RaceCondition {
@@ -48,6 +51,8 @@ RaceCondition raceState = STOPPED;
 
 unsigned long raceStartTime; // Start time in milliseconds
 unsigned long lastTrackUpdate = 0; // Time of last track update in milliseconds
+unsigned long lastSoundPlayed = 0; // Time since last beep
+bool soundPlaying = false; // We have to track this so we toggle beeps
 unsigned short distanceTravelled = 0; // How many track updates have happened
 unsigned short score = 0;
 
@@ -95,6 +100,7 @@ void loop() {
       if ( progressTrack(now) ) {
         racerStartRow++;
       }
+      revEngine(now);
       flickerRacer();
       redrawScreen(racerStartRow);
       delay(flickerRate);
@@ -114,6 +120,7 @@ void loop() {
         if ( progressTrack(now) ) {
           addNewTrack();
         }
+        revEngine(now);
         adjustRacerSpeed();
         handleRacerHorizontalMovement();
         flickerRacer();
@@ -128,6 +135,7 @@ void loop() {
         addEmptyTrack();
         racerEndCounter++;
       }
+      revEngine(now);
       adjustRacerSpeed();
       handleRacerHorizontalMovement();
       flickerRacer();
@@ -144,6 +152,7 @@ void loop() {
     break;
 
     case SHOWSCORE:
+      gamer.stopTone(); // in case we
       if ( score == 0 ) {
         score = round(
                       (
@@ -165,6 +174,14 @@ void loop() {
     break;
     
     default:
+      if(gamer.isPressed(UP)) {
+        sound = true;
+        gamer.printString("SND ON");
+      }
+      if(gamer.isPressed(DOWN)) {
+        sound = false;
+        gamer.printString("SND OFF");
+      }
       flickerRacer();
       redrawScreen(racerStartRow);
       delay(flickerRate);
@@ -188,6 +205,8 @@ void loop() {
 void resetRace() {
   distanceTravelled = 0;
   lastTrackUpdate = 0;
+  lastSoundPlayed = 0;
+  soundPlaying = false;
   score = 0;
 
   dotRacerSpeed = 300;
@@ -216,6 +235,29 @@ bool progressTrack(unsigned long now) {
 
   return false;
 
+}
+
+void revEngine(unsigned long now) {
+  if (!sound) {
+    return;
+  }
+  
+  if ( (now - lastSoundPlayed) >= (dotRacerSpeed*3) ) {
+    if ( dotRacerSpeed < 200 ) {
+      gamer.playTone(engineSounds[2]);
+    } else if ( dotRacerSpeed < 600 ) {
+      gamer.playTone(engineSounds[1]);
+    } else{
+      gamer.playTone(engineSounds[0]);
+    }
+    lastSoundPlayed = now;
+    soundPlaying = true;
+  }
+
+  if ( soundPlaying && (now - lastSoundPlayed) > 10 ) {
+    gamer.stopTone();
+    soundPlaying = false;
+  }
 }
 
 void addNewTrack() {
