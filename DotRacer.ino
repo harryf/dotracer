@@ -3,18 +3,20 @@
 
 Gamer gamer;
 
-static const short trackLength = 50; // How far down the track do you need to go to finish?
+static const short trackLength = 250; // How far down the track do you need to go to finish?
 static const bool DEBUG = false; // Serial library seems to leak or cause weirdness so make toggle-able
 static const short flickerRate = 50; 
 
 /**
  * How the track is displayed on screen
  */
-byte trackParts[4] = {
+byte trackParts[6] = {
+  B00011111,
   B10001111,
   B11000111,
   B11100011,
-  B11110001
+  B11110001,
+  B11111000
 };
 
 /**
@@ -23,8 +25,10 @@ byte trackParts[4] = {
 int trans1[4] = {0,1,1};
 int trans2[4] = {0,1,2};
 int trans3[4] = {1,2,3};
-int trans4[4] = {2,2,3};
-int* transitions[4] = {};
+int trans4[4] = {2,3,4};
+int trans5[4] = {3,4,5};
+int trans6[4] = {4,4,5};
+int* transitions[6] = {};
 
 
 byte track[8] = {}; // Remembers the actual deployed track parts
@@ -70,6 +74,8 @@ void setup() {
   transitions[1] = trans2;
   transitions[2] = trans3;
   transitions[3] = trans4;
+  transitions[4] = trans5;
+  transitions[5] = trans6;
 
   gamer.begin();
 
@@ -151,7 +157,8 @@ void loop() {
       
       gamer.showScore(score);
 
-      if ( (now - lastTrackUpdate) > 5000 ) {
+      // show score for 15s to allow bragging
+      if ( (now - lastTrackUpdate) > 15000 ) {
         raceState = STOPPED;
         resetRace();
       }
