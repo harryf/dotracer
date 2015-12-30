@@ -3,7 +3,7 @@
 
 Gamer gamer;
 
-static const short trackLength = 250; // How far down the track do you need to go to finish?
+static const short trackLength = 50; // How far down the track do you need to go to finish?
 static const bool DEBUG = false; // Serial library seems to leak or cause weirdness so make toggle-able
 static const short flickerRate = 50; 
 
@@ -144,6 +144,8 @@ void loop() {
       } else {
         redrawScreen(7);
       }
+
+      gamer.toggleLED();
       delay(flickerRate);
 
       if (racerEndCounter > 10 ) {
@@ -152,7 +154,9 @@ void loop() {
     break;
 
     case SHOWSCORE:
-      gamer.stopTone(); // in case we
+      // Clean up
+      gamer.setLED(false);
+      gamer.stopTone();
       if ( score == 0 ) {
         score = round(
                       (
@@ -203,6 +207,8 @@ void loop() {
 }
 
 void resetRace() {
+  gamer.setLED(false);
+  gamer.stopTone();
   distanceTravelled = 0;
   lastTrackUpdate = 0;
   lastSoundPlayed = 0;
