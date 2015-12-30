@@ -1,10 +1,11 @@
 #include <Gamer.h>
+#include <math.h>
 
 Gamer gamer;
 
-static const short trackLength = 500; // How far down the track do you need to go to finish?
+static const short trackLength = 50; // How far down the track do you need to go to finish?
 static const bool DEBUG = false; // Serial library seems to leak or cause weirdness so make toggle-able
-static const short flickerRate = 100; 
+static const short flickerRate = 50; 
 
 /**
  * How the track is displayed on screen
@@ -44,6 +45,7 @@ RaceCondition raceState = STOPPED;
 unsigned long raceStartTime; // Start time in milliseconds
 unsigned long lastTrackUpdate = 0; // Time of last track update in milliseconds
 unsigned short distanceTravelled = 0; // How many track updates have happened
+unsigned short score = 0;
 
 unsigned short racerStartRow = 3; // For the start sequence
 unsigned short racerEndCounter = 0; // Tracking the end sequence
@@ -55,7 +57,7 @@ unsigned short racerEndCounter = 0; // Tracking the end sequence
  */
 unsigned short dotRacerSpeed = 300;
 
-unsigned short dotRacerPosition = 4; // Current X position of racer
+unsigned short dotRacerPosition = 4; // Current horitzontal position of racer
 bool dotRacerFlicker = true; // toggle to make the dot visible
 
 void setup() {
@@ -87,7 +89,7 @@ void loop() {
       if ( progressTrack(now) ) {
         racerStartRow++;
       }
-      updateDotRacer(true);
+      flickerRacer();
       redrawScreen(racerStartRow);
       delay(flickerRate);
 
@@ -106,8 +108,9 @@ void loop() {
         if ( progressTrack(now) ) {
           addNewTrack();
         }
-        updateSpeed();
-        updateDotRacer(true);
+        adjustRacerSpeed();
+        handleRacerHorizontalMovement();
+        flickerRacer();
         redrawScreen(7);
         delay(flickerRate);
         
@@ -119,8 +122,9 @@ void loop() {
         addEmptyTrack();
         racerEndCounter++;
       }
-      updateSpeed();
-      updateDotRacer(true);
+      adjustRacerSpeed();
+      handleRacerHorizontalMovement();
+      flickerRacer();
       if (racerEndCounter > 7 ) {
         redrawScreen(7-(racerEndCounter-7));
       } else {
@@ -134,10 +138,18 @@ void loop() {
     break;
 
     case SHOWSCORE:
-      // What to do with elapsed time? printScreen?
-      // double elapsed = ((double)millis() - (double)raceStartTime)/1000;
-      // gamer.printString("Finished");  
-      gamer.showScore(10);
+      if ( score == 0 ) {
+        score = round(
+                      (
+                        ((trackLength+21)*100.0)
+                        /
+                        (now-raceStartTime)
+                      )*100.0
+                     );
+        if ( score == 100 ) score = 99;
+      }
+      
+      gamer.showScore(score);
 
       if ( (now - lastTrackUpdate) > 5000 ) {
         raceState = STOPPED;
@@ -146,7 +158,7 @@ void loop() {
     break;
     
     default:
-      updateDotRacer(false);
+      flickerRacer();
       redrawScreen(racerStartRow);
       delay(flickerRate);
     break;
@@ -169,6 +181,7 @@ void loop() {
 void resetRace() {
   distanceTravelled = 0;
   lastTrackUpdate = 0;
+  score = 0;
 
   dotRacerSpeed = 300;
   dotRacerPosition = 4;
@@ -208,7 +221,7 @@ void addEmptyTrack() {
   track[0] = B00000000;
 }
 
-void updateSpeed() {
+void adjustRacerSpeed() {
   // Player pressed speed up (up button)
   if(gamer.isPressed(UP) && dotRacerSpeed > 100) {
       dotRacerSpeed -= 100;
@@ -238,15 +251,16 @@ int racerOffTrack() {
   return 0;
 }
 
-void updateDotRacer(bool allowMovement) {
-  if ( allowMovement ) {
-    if(gamer.isPressed(LEFT) && dotRacerPosition < 7 ) {
-      dotRacerPosition += 1;
-    }
-    if(gamer.isPressed(RIGHT) && dotRacerPosition >= 1) {
-      dotRacerPosition -= 1;
-    }
+void handleRacerHorizontalMovement() {
+  if(gamer.isPressed(LEFT) && dotRacerPosition < 7 ) {
+    dotRacerPosition += 1;
   }
+  if(gamer.isPressed(RIGHT) && dotRacerPosition >= 1) {
+    dotRacerPosition -= 1;
+  }
+}
+
+void flickerRacer() {
   // The flicker helps make the racer visible to the eye even when off the track
   dotRacerFlicker = !dotRacerFlicker;
 }
@@ -267,7 +281,7 @@ void redrawScreen(int racerPosition) {
 void setupTrack() {
   
   for (int i = 0; i<= 7;i++) {
-    track[i] = B00000000;
+    track[i] = B00000000; // initialize track with blonk rows
   }
   
 }
