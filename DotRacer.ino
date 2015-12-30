@@ -3,7 +3,7 @@
 
 Gamer gamer;
 
-static const short trackLength = 50; // How far down the track do you need to go to finish?
+static const short trackLength = 250; // How far down the track do you need to go to finish?
 static const bool DEBUG = false; // Serial library seems to leak or cause weirdness so make toggle-able
 static const short flickerRate = 50; 
 
