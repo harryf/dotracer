@@ -22,12 +22,12 @@ byte trackParts[6] = {
 /**
  * Defined allowed transitions from one track part to the next
  */
-int trans1[4] = {0,1,1};
-int trans2[4] = {0,1,2};
-int trans3[4] = {1,2,3};
-int trans4[4] = {2,3,4};
-int trans5[4] = {3,4,5};
-int trans6[4] = {4,4,5};
+int trans0[3] = {0,1,1};
+int trans1[3] = {0,1,2};
+int trans2[3] = {1,2,3};
+int trans3[3] = {2,3,4};
+int trans4[3] = {3,4,5};
+int trans5[3] = {4,4,5};
 int* transitions[6] = {};
 
 
@@ -70,12 +70,12 @@ void setup() {
   }
 
   // Setup transistions
-  transitions[0] = trans1;
-  transitions[1] = trans2;
-  transitions[2] = trans3;
-  transitions[3] = trans4;
-  transitions[4] = trans5;
-  transitions[5] = trans6;
+  transitions[0] = trans0;
+  transitions[1] = trans1;
+  transitions[2] = trans2;
+  transitions[3] = trans3;
+  transitions[4] = trans4;
+  transitions[5] = trans5;
 
   gamer.begin();
 
