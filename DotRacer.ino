@@ -335,7 +335,7 @@ void adjustRacerSpeed(unsigned long now) {
   }
   // We detected a collision - the racer is off the track
   // so slow it down
-  if (racerOffTrack() && dotRacerSpeed <= 1000 && (now % 2 == 0)) {
+  if (racerOffTrack() && dotRacerSpeed <= 1000 && (now % 3 != 0)) {
     dotRacerSpeed += 50;
   }
 }
