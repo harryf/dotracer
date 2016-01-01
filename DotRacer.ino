@@ -200,7 +200,7 @@ void loop() {
                         (now-raceStartTime)
                       )*100.0
                      );
-        if ( score == 100 ) score = 99;
+        if ( score >= 100 ) score = 99;
       }
       
       gamer.showScore(score);
