@@ -10,7 +10,7 @@ static const short flickerRate = 50;
 /**
  * How the track is displayed on screen
  */
-byte trackParts[6] = {
+byte trackPartsS[6] = {
   B00011111,
   B10001111,
   B11000111,
@@ -18,6 +18,32 @@ byte trackParts[6] = {
   B11110001,
   B11111000
 };
+
+byte trackPartsM[6] = {
+  B00001111,
+  B10000111,
+  B11000011,
+  B11000011,
+  B11100001,
+  B11110000
+};
+
+byte trackPartsL[6] = {
+  B00000111,
+  B10000011,
+  B10000011,
+  B11000001,
+  B11000001,
+  B11100000
+};
+
+enum TrackWidth {
+  SMALL = 1,
+  MEDIUM = 2,
+  LARGE = 3
+};
+
+TrackWidth trackWidth = LARGE;
 
 /**
  * Defined allowed transitions from one track part to the next
@@ -117,11 +143,20 @@ void loop() {
         raceState = ENDING;
         
       } else {
+
+        if ( distanceTravelled < (trackLength / 4) ) {
+          trackWidth = LARGE;
+        } else if ( distanceTravelled < (trackLength / 2) ) {
+          trackWidth = MEDIUM;
+        } else {
+          trackWidth = SMALL;
+        }
+        
         if ( progressTrack(now) ) {
-          addNewTrack();
+          addNewTrack(trackWidth);
         }
         revEngine(now);
-        adjustRacerSpeed();
+        adjustRacerSpeed(now);
         handleRacerHorizontalMovement();
         flickerRacer();
         redrawScreen(7);
@@ -136,7 +171,7 @@ void loop() {
         racerEndCounter++;
       }
       revEngine(now);
-      adjustRacerSpeed();
+      adjustRacerSpeed(now);
       handleRacerHorizontalMovement();
       flickerRacer();
       if (racerEndCounter > 7 ) {
@@ -215,6 +250,7 @@ void resetRace() {
   soundPlaying = false;
   score = 0;
 
+  trackWidth = LARGE;
   dotRacerSpeed = 300;
   dotRacerPosition = 4;
   dotRacerFlicker = true;
@@ -266,17 +302,29 @@ void revEngine(unsigned long now) {
   }
 }
 
-void addNewTrack() {
+void addNewTrack(int trackWidth) {
   // Place a new random track part at the top of screen
   trackState[0] = transitions[trackState[0]][random(0,3)];
-  track[0] = trackParts[trackState[0]];
+
+  switch (trackWidth) {
+    case 1:
+      track[0] = trackPartsS[trackState[0]];
+    break;
+    case 2:
+      track[0] = trackPartsM[trackState[0]];
+    break;
+    case 3:
+      track[0] = trackPartsL[trackState[0]];
+    break;
+  }
+  
 }
 
 void addEmptyTrack() {
   track[0] = B00000000;
 }
 
-void adjustRacerSpeed() {
+void adjustRacerSpeed(unsigned long now) {
   // Player pressed speed up (up button)
   if(gamer.isPressed(UP) && dotRacerSpeed > 100) {
       dotRacerSpeed -= 100;
@@ -287,7 +335,7 @@ void adjustRacerSpeed() {
   }
   // We detected a collision - the racer is off the track
   // so slow it down
-  if (racerOffTrack() && dotRacerSpeed <= 1000) {
+  if (racerOffTrack() && dotRacerSpeed <= 1000 && (now % 2 == 0)) {
     dotRacerSpeed += 50;
   }
 }
