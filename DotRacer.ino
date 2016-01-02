@@ -120,7 +120,6 @@ void setup() {
 void loop() {
   unsigned long now = millis();
   switch (raceState) {
-
     
     case STARTING:
       if ( progressTrack(now) ) {
@@ -144,9 +143,9 @@ void loop() {
         
       } else {
 
-        if ( distanceTravelled < (trackLength / 4) ) {
+        if ( distanceTravelled < (trackLength / 10) ) {
           trackWidth = LARGE;
-        } else if ( distanceTravelled < (trackLength / 2) ) {
+        } else if ( distanceTravelled < (trackLength / 5) ) {
           trackWidth = MEDIUM;
         } else {
           trackWidth = SMALL;
@@ -155,6 +154,7 @@ void loop() {
         if ( progressTrack(now) ) {
           addNewTrack(trackWidth);
         }
+        
         revEngine(now);
         adjustRacerSpeed(now);
         handleRacerHorizontalMovement();
